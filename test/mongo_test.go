@@ -1,9 +1,11 @@
-package main
+package test
 
 import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/leeyonglan/go-mongo/mongo"
 )
 
 func TestConn(t *testing.T) {
