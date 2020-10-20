@@ -17,7 +17,7 @@ type DbConf struct {
 }
 
 type DbConnConf struct {
-	confs []*DbConf
+	Confs []*DbConf
 }
 
 func (conf *DbConnConf) Init() {
@@ -48,5 +48,5 @@ func (conf *DbConnConf) getConnIdent(dbconf *DbConf) string {
 
 func (conf *DbConnConf) getConnConf(ctx context.Context) *DbConf {
 	//TODO get session key by ctx,defalt return the first element
-	return conf.confs[0]
+	return conf.Confs[0]
 }
