@@ -8,9 +8,9 @@ type Mongo struct {
 	ConSession *mgo.Session
 }
 
-func (mongo *Mongo) Find(dbName string, collectionName string, where map[string]interface{}) (result []interface{}, err error) {
+func (mongo *Mongo) Find(dbName string, collectionName string, where map[string]interface{}) (result []MongoItem, err error) {
 	session := mongo.ConSession
-	defer session.Close()
+	// defer session.Close()
 
 	var query *mgo.Query
 	query = session.DB(dbName).C(collectionName).Find(where)
@@ -37,7 +37,7 @@ func (mongo *Mongo) Insert(dbName string, collectionName string, doc ...interfac
 
 func (mongo *Mongo) Update(dbName string, collectionName string, where interface{}, update interface{}) (err error) {
 	session := mongo.ConSession
-	defer session.Close()
+	// defer session.Close()
 	err = session.DB(dbName).C(collectionName).Update(where, update)
 	return
 }
