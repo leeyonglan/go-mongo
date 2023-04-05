@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceRoot}",
-            "args": ["/Users/apple/Documents/teaapp/clwork/teaapp-help/teaapp/","/Users/apple/Documents/teaapp/clwork/teaapp/"]
+            "args": ["--sys=ios"]
         }
     ]
 }

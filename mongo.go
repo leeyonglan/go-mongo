@@ -13,9 +13,10 @@ import (
 
 	"regexp"
 
-	"github.com/fvbock/endless"
 	"github.com/gin-gonic/gin"
-	"github.com/leeyonglan/go-mongo/mongo"
+	"github.com/leeyonglan/go-mongo"
+
+	"github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -134,9 +135,9 @@ func testSignal() {
 	// 	Handler: route,
 	// }
 	// go func() {
-	if err := endless.ListenAndServe(":8080", route); err != nil {
-		log.Fatalf("listen: %s\n", err)
-	}
+	// if err := endless.ListenAndServe(":8080", route); err != nil {
+	// 	log.Fatalf("listen: %s\n", err)
+	// }
 
 	// // 等待中断信号来优雅地关闭服务器，为关闭服务器操作设置一个5秒的超时
 	// quit := make(chan os.Signal, 1) // 创建一个接收信号的通道
@@ -203,23 +204,25 @@ func testPointer() {
 // 	ecom.TestRestful()
 // }
 
+// func main() {
+// 	// fmt.Println(f3())
+// 	// versiondiff.Diff()
+// 	// notification.DoPush()
+// 	// teaapp.NotiUser()
+// 	var deviceToken string
+// 	flag.StringVar(&deviceToken, "token", "", "deviceToken")
+// 	flag.Parse()
+// 	if deviceToken == "" {
+// 		fmt.Println("please input device token")
+// 		os.Exit(0)
+// 	}
+// 	notification.InitFcm(deviceToken)
+// 	// notification.DoAndroidPush("noti_newversion", "d2qQcdtUQcWwKR2NCwhKuM:APA91bF3nKmr_zDkJgM8Wu8DyDhTPdrbt8v1hLRig2_W2wa6rp1sEiBmwGdzqUIrNsHg6Myi8v1z030Pi_yy6AU4y5KgC0dSRE-KPg86riCK564yKJ6TZ58qxHAOx2x4FDDTgcosWPhq")
+// }
+
+var Log = logrus.New()
+var Sys string
+
 func main() {
-	// fmt.Println(f3())
-	// versiondiff.Diff()
-	// notification.DoPush()
 	teaapp.NotiUser()
-}
-
-func increase(d int) (ret int) {
-	defer func() {
-		ret++
-	}()
-
-	return d
-}
-func f3() (r int) {
-	defer func(r *int) {
-		*r = *r + 5
-	}(&r)
-	return 1
 }

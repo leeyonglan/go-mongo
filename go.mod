@@ -1,11 +1,13 @@
-module github.com/leeyonglan/go-mongo
+module main
 
 go 1.18
 
 require (
-	github.com/fvbock/endless v0.0.0-20170109170031-447134032cb6
 	github.com/gin-gonic/gin v1.8.2
+	github.com/leeyonglan/go-mongo v1.0.2
+	github.com/sirupsen/logrus v1.9.0
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22
+	teaapp v0.0.0-00010101000000-000000000000
 )
 
 require (
@@ -28,7 +30,8 @@ require (
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	teaapp v0.0.0-00010101000000-000000000000 // indirect
 )
 
 replace teaapp => ./teaapp
+replace github.com/leeyonglan/go-mongo => ./mongo
+
