@@ -89,6 +89,7 @@ var (
 	wg              *sync.WaitGroup
 	cfg             *ini.File
 	Sys             string
+	Env             string
 	FixtimezoneFlag string
 	LogRus          *log.Logger
 )
@@ -103,6 +104,7 @@ func InitConfig() {
 
 	flag.StringVar(&FixtimezoneFlag, "fixTimeZone", "", "fixTimeZone")
 	flag.StringVar(&Sys, "sys", "", "android")
+	flag.StringVar(&Env, "env", "pro", "devOrPro")
 	flag.Parse()
 	if Sys == "" {
 		fmt.Println("please input system")
@@ -178,7 +180,6 @@ func NotiUser() {
 			continue
 		}
 		// 判断所在时区现在是否可以发 中午10-14pm, 晚上6-8pm, 10-12am
-		LogRus.Info(userinfo.Id, " check send")
 		userTimeZone := userinfo.TimeZone
 		timeTime := GetLocalTime(userTimeZone)
 		if isForbiddenTime(timeTime) {
@@ -254,7 +255,7 @@ func NotiUser() {
 		}
 		//体力恢复满通知
 		propsQuery := session.DB(database_1).C(propsTabel).Find(bson.M{"_id": userinfo.Id})
-		propsQuery.Select(bson.M{"_id": 1, "data.userTokenData.power": 1})
+		propsQuery.Select(bson.M{"_id": 1, "data.userTokenData.power": 1, "data.userTokenData.powerStartTime": 1})
 		var propsinfo propsInfo
 		err = propsQuery.One(&propsinfo)
 		if err != nil {
@@ -545,7 +546,11 @@ func getMongo(host string, port string, user string, password string) *mongo.Mon
 	}
 	dbconfs.Init()
 
-	var conn = dbconfs.GetSSLCon(context.TODO())
-	// var conn = dbconfs.GetConn(context.TODO())
+	var conn *mgo.Session
+	if Env == "dev" {
+		conn = dbconfs.GetConn(context.TODO())
+	} else {
+		conn = dbconfs.GetSSLCon(context.TODO())
+	}
 	return &mongo.Mongo{ConSession: conn}
 }
