@@ -3,7 +3,6 @@ package teaapp
 import (
 	"context"
 	"fmt"
-	"log"
 
 	firebase "firebase.google.com/go"
 	"firebase.google.com/go/messaging"
@@ -16,13 +15,13 @@ func GetMessagingInstance() *messaging.Client {
 	once.Do(func() {
 		app, err := firebase.NewApp(context.Background(), nil)
 		if err != nil {
-			log.Fatalf("error initializing app: %v\n", err)
+			LogRus.Fatalf("error initializing app: %v\n", err)
 		}
 		// Obtain a messaging.Client from the App.
 		ctx = context.Background()
 		messagingInstance, err = app.Messaging(ctx)
 		if err != nil {
-			log.Fatalf("error getting Messaging client: %v\n", err)
+			LogRus.Fatalf("error getting Messaging client: %v\n", err)
 		}
 	})
 	return messagingInstance
@@ -57,7 +56,7 @@ func InitFcm(registrationToken string) {
 	// registration token.
 	response, err := client.Send(ctx, message)
 	if err != nil {
-		log.Fatalln(err)
+		LogRus.Fatalln(err)
 	}
 	// Response is a message ID string.
 	fmt.Println("Successfully sent message:", response)
@@ -87,9 +86,9 @@ func DoAndroidPush(notiType string, deviceToken string) (err error) {
 	response, err := client.Send(ctx, message)
 
 	if err != nil {
-		log.Fatalln(err)
+		LogRus.Fatalln(err)
 	}
 	// Response is a message ID string.
-	fmt.Println("Successfully sent message:", response)
+	LogRus.Info("Successfully sent message:", response)
 	return
 }

@@ -89,6 +89,7 @@ func (conf *DbConnConf) GetConn(ctx context.Context) *mgo.Session {
 	}
 	return conn.Clone()
 }
+
 func (conf *DbConnConf) GetSSLCon(ctx context.Context) *mgo.Session {
 	dbConf := conf.getConnConf(ctx)
 	rootCerts := x509.NewCertPool()

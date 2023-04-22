@@ -16,7 +16,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/leeyonglan/go-mongo"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/mgo.v2/bson"
 )
 
@@ -216,13 +215,12 @@ func testPointer() {
 // 		fmt.Println("please input device token")
 // 		os.Exit(0)
 // 	}
-// 	notification.InitFcm(deviceToken)
+// 	teaapp.InitFcm(deviceToken)
 // 	// notification.DoAndroidPush("noti_newversion", "d2qQcdtUQcWwKR2NCwhKuM:APA91bF3nKmr_zDkJgM8Wu8DyDhTPdrbt8v1hLRig2_W2wa6rp1sEiBmwGdzqUIrNsHg6Myi8v1z030Pi_yy6AU4y5KgC0dSRE-KPg86riCK564yKJ6TZ58qxHAOx2x4FDDTgcosWPhq")
 // }
 
-var Log = logrus.New()
-var Sys string
-
 func main() {
 	teaapp.NotiUser()
+	// teaapp.InitConfig()
+	// teaapp.DoPushBody()
 }

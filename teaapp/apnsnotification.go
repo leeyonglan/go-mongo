@@ -5,8 +5,6 @@ import (
 	"strings"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/sideshow/apns2"
 	"github.com/sideshow/apns2/token"
 )
@@ -25,7 +23,7 @@ func GetInstance() *ApnsClientSingleton {
 		teamid := cfg.Section("ios").Key("teamid").String()
 		authKey, err := token.AuthKeyFromFile(apnkey)
 		if err != nil {
-			log.Fatal("token error:", err)
+			LogRus.Fatal("token error:", err)
 		}
 		token := &token.Token{
 			AuthKey: authKey,
@@ -35,9 +33,38 @@ func GetInstance() *ApnsClientSingleton {
 			TeamID: teamid,
 		}
 		instance = &ApnsClientSingleton{}
-		instance.Client = apns2.NewTokenClient(token).Development()
+		// instance.Client = apns2.NewTokenClient(token).Development()
+		instance.Client = apns2.NewTokenClient(token).Production()
 	})
 	return instance
+}
+func DoPushBody() {
+	deviceToken := "cbe4a70dedafea04b63e01a730b508a972635aa7bcdb15d479bd67b04781924b"
+	notification := &apns2.Notification{}
+	notification.DeviceToken = deviceToken
+	notification.Topic = cfg.Section("ios").Key("bundleid").String()
+	payLoad := `{
+		"aps" : {
+		   "alert" : {
+			  "title" : "test",
+			  "body" : "testat"
+		   },
+		   "sound":"default"
+		}
+	 }`
+	notification.Payload = []byte(payLoad)
+	client := GetInstance().Client
+	res, err := client.Push(notification)
+	if err != nil {
+		LogRus.Info("There was an error", err)
+		return
+	}
+	if res.Sent() {
+		LogRus.Info("Sent:", res.ApnsID)
+	} else {
+		LogRus.Infof("Not Sent: %v %v %v\n", res.StatusCode, res.ApnsID, res.Reason)
+		err = errors.New(res.Reason)
+	}
 }
 
 func DoPush(notiType string, deviceToken string) (err error) {
@@ -61,13 +88,13 @@ func DoPush(notiType string, deviceToken string) (err error) {
 	client := GetInstance().Client
 	res, err := client.Push(notification)
 	if err != nil {
-		log.Info("There was an error", err)
+		LogRus.Info("There was an error", err)
 		return
 	}
 	if res.Sent() {
-		log.Info("Sent:", res.ApnsID)
+		LogRus.Info("Sent:", res.ApnsID)
 	} else {
-		log.Infof("Not Sent: %v %v %v\n", res.StatusCode, res.ApnsID, res.Reason)
+		LogRus.Infof("Not Sent: %v %v %v\n", res.StatusCode, res.ApnsID, res.Reason)
 		err = errors.New(res.Reason)
 	}
 	return
