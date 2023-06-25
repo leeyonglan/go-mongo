@@ -18,9 +18,9 @@ var once sync.Once
 
 func GetInstance() *ApnsClientSingleton {
 	once.Do(func() {
-		apnkey := cfg.Section("ios").Key("apnkey").String()
-		keyid := cfg.Section("ios").Key("keyid").String()
-		teamid := cfg.Section("ios").Key("teamid").String()
+		apnkey := Cfg.Section("ios").Key("apnkey").String()
+		keyid := Cfg.Section("ios").Key("keyid").String()
+		teamid := Cfg.Section("ios").Key("teamid").String()
 		authKey, err := token.AuthKeyFromFile(apnkey)
 		if err != nil {
 			LogRus.Fatal("token error:", err)
@@ -42,7 +42,7 @@ func DoPushBody() {
 	deviceToken := "cbe4a70dedafea04b63e01a730b508a972635aa7bcdb15d479bd67b04781924b"
 	notification := &apns2.Notification{}
 	notification.DeviceToken = deviceToken
-	notification.Topic = cfg.Section("ios").Key("bundleid").String()
+	notification.Topic = Cfg.Section("ios").Key("bundleid").String()
 	payLoad := `{
 		"aps" : {
 		   "alert" : {
@@ -71,7 +71,7 @@ func DoPush(notiType string, deviceToken string) (err error) {
 	defer wg.Done()
 	notification := &apns2.Notification{}
 	notification.DeviceToken = deviceToken //"5bebadcbb5cab711af22822f97438438b0d1c190405d32965a68f0ac0a7c9061"
-	notification.Topic = cfg.Section("ios").Key("bundleid").String()
+	notification.Topic = Cfg.Section("ios").Key("bundleid").String()
 	// notification.Payload = []byte(`{"aps":{"alert":"Hello!"}}`) // See Payload section below
 	notiType = "noti_" + notiType
 	payLoad := `{

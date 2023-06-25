@@ -6,4 +6,5 @@ use (
 	./goexcel
 	./teaapp
 	./versiondiff
+	./mongo
 )

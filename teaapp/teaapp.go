@@ -1,16 +1,15 @@
 package teaapp
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"math"
+	"mongo"
 	"os"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/leeyonglan/go-mongo"
 	"github.com/sirupsen/logrus"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/ini.v1"
@@ -18,7 +17,32 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-type resturant struct {
+const rootPEM = `-----BEGIN CERTIFICATE-----
+MIIECTCCAvGgAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwgZUxCzAJBgNVBAYTAlVT
+MRAwDgYDVQQHDAdTZWF0dGxlMRMwEQYDVQQIDApXYXNoaW5ndG9uMSIwIAYDVQQK
+DBlBbWF6b24gV2ViIFNlcnZpY2VzLCBJbmMuMRMwEQYDVQQLDApBbWF6b24gUkRT
+MSYwJAYDVQQDDB1BbWF6b24gUkRTIGV1LXNvdXRoLTEgUm9vdCBDQTAeFw0xOTEw
+MzAyMDIxMzBaFw0yNDEwMzAyMDIxMzBaMIGQMQswCQYDVQQGEwJVUzETMBEGA1UE
+CAwKV2FzaGluZ3RvbjEQMA4GA1UEBwwHU2VhdHRsZTEiMCAGA1UECgwZQW1hem9u
+IFdlYiBTZXJ2aWNlcywgSW5jLjETMBEGA1UECwwKQW1hem9uIFJEUzEhMB8GA1UE
+AwwYQW1hem9uIFJEUyBldS1zb3V0aC0xIENBMIIBIjANBgkqhkiG9w0BAQEFAAOC
+AQ8AMIIBCgKCAQEAtEyjYcajx6xImJn8Vz1zjdmL4ANPgQXwF7+tF7xccmNAZETb
+bzb3I9i5fZlmrRaVznX+9biXVaGxYzIUIR3huQ3Q283KsDYnVuGa3mk690vhvJbB
+QIPgKa5mVwJppnuJm78KqaSpi0vxyCPe3h8h6LLFawVyWrYNZ4okli1/U582eef8
+RzJp/Ear3KgHOLIiCdPDF0rjOdCG1MOlDLixVnPn9IYOciqO+VivXBg+jtfc5J+L
+AaPm0/Yx4uELt1tkbWkm4BvTU/gBOODnYziITZM0l6Fgwvbwgq5duAtKW+h031lC
+37rEvrclqcp4wrsUYcLAWX79ZyKIlRxcAdvEhQIDAQABo2YwZDAOBgNVHQ8BAf8E
+BAMCAQYwEgYDVR0TAQH/BAgwBgEB/wIBADAdBgNVHQ4EFgQU7zPyc0azQxnBCe7D
+b9KAadH1QSEwHwYDVR0jBBgwFoAUFBAFcgJe/BBuZiGeZ8STfpkgRYQwDQYJKoZI
+hvcNAQELBQADggEBAFGaNiYxg7yC/xauXPlaqLCtwbm2dKyK9nIFbF/7be8mk7Q3
+MOA0of1vGHPLVQLr6bJJpD9MAbUcm4cPAwWaxwcNpxOjYOFDaq10PCK4eRAxZWwF
+NJRIRmGsl8NEsMNTMCy8X+Kyw5EzH4vWFl5Uf2bGKOeFg0zt43jWQVOX6C+aL3Cd
+pRS5MhmYpxMG8irrNOxf4NVFE2zpJOCm3bn0STLhkDcV/ww4zMzObTJhiIb5wSWn
+EXKKWhUXuRt7A2y1KJtXpTbSRHQxE++69Go1tWhXtRiULCJtf7wF2Ksm0RR/AdXT
+1uR1vKyH5KBJPX3ppYkQDukoHTFR0CpB+G84NLo=
+-----END CERTIFICATE-----`
+
+type Resturant struct {
 	Id   int                                          `bson:"_id"`
 	Data map[string]map[string]map[string]interface{} `bson:"data"`
 }
@@ -49,15 +73,24 @@ type userInfo struct {
 
 //notification 表
 type notificationInfo struct {
-	Id            int            `bson:"_id"`
-	FriendGift    map[string]int `bson:"friendgift"` //是否需要发送好友送礼物通知
-	LastSendTime  int            `bson:"lastsendtime"`
-	Version       string         `bson:"newversion"`
-	RankReward    int            `bson:"rankreward"`
-	RankRestart   string         `bson:"rankrestart"`
-	PowerDay      string         `bson:"powerday"`
-	PowerTimes    int            `bson:"powertimes"`
-	CallBackTimes int            `bson:"callback"`
+	Id             int            `bson:"_id"`
+	FriendGift     map[string]int `bson:"friendgift"` //是否需要发送好友送礼物通知
+	LastSendTime   int            `bson:"lastsendtime"`
+	Version        string         `bson:"newversion"`
+	RankReward     int            `bson:"rankreward"`
+	RankRestart    string         `bson:"rankrestart"`
+	PowerDay       string         `bson:"powerday"`
+	PowerTimes     int            `bson:"powertimes"`
+	CallBackTimes  int            `bson:"callback"`
+	LastAllMailId  string         `bson:"lastallmailid"`
+	LastPartMailId string         `bson:"lastpartmailid"`
+}
+
+type mailListInfo struct {
+	Id       bson.ObjectId `bson:"_id"`
+	Type     int           `bson:"type"`
+	Isuse    int           `bson:"is_use"`
+	UidArray []int         `bson:"uid_array"`
 }
 
 // version 表
@@ -87,82 +120,120 @@ type propsInfo struct {
 
 var (
 	wg              *sync.WaitGroup
-	cfg             *ini.File
+	Cfg             *ini.File
 	Sys             string
 	Env             string
 	FixtimezoneFlag string
 	LogRus          *log.Logger
+	Session         *mgo.Session
 )
 
 func InitConfig() {
 	cfgv, err := ini.Load("./config.ini")
-	cfg = cfgv
+	Cfg = cfgv
 	if err != nil {
 		fmt.Printf("Fail to read file:%v", err)
 		os.Exit(1)
-	}
-
-	flag.StringVar(&FixtimezoneFlag, "fixTimeZone", "", "fixTimeZone")
-	flag.StringVar(&Sys, "sys", "", "android")
-	flag.StringVar(&Env, "env", "pro", "devOrPro")
-	flag.Parse()
-	if Sys == "" {
-		fmt.Println("please input system")
-		os.Exit(0)
 	}
 	LogRus = log.New()
 	LogRus.SetFormatter(&log.TextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 	LogRus.Formatter.(*logrus.TextFormatter).DisableTimestamp = false
-	LogRus.Level = logrus.TraceLevel
+	LogRus.Level = logrus.InfoLevel
 	LogRus.Out = os.Stdout
 
 }
+func InitMongo() {
+	var ca string = ""
+	if Env == "pro" {
+		ca = rootPEM
+	}
+	host := Cfg.Section("mongo").Key("host").String()
+	port := Cfg.Section("mongo").Key("port").String()
+	user := Cfg.Section("mongo").Key("user").String()
+	password := Cfg.Section("mongo").Key("password").String()
+	mongo := mongo.GetMongo(host, port, user, password, ca)
+	Session = mongo.ConSession
+}
 
-func NotiUser() {
-	InitConfig()
-	wg = new(sync.WaitGroup)
-	now := int32(time.Now().Unix())
-	host := cfg.Section("mongo").Key("host").String()
-	port := cfg.Section("mongo").Key("port").String()
-	user := cfg.Section("mongo").Key("user").String()
-	password := cfg.Section("mongo").Key("password").String()
-	mongo := getMongo(host, port, user, password)
+func ReleaseMongo() {
+	Session.Close()
+}
 
-	database_1 := cfg.Section("mongo").Key("database_1").String()
-	database_0 := cfg.Section("mongo").Key("database_0").String()
-
-	userTable := cfg.Section("mongo").Key("user_table").String()
-	// userDataTable := cfg.Section("mongo").Key("user_m_data").String()
-	versionTable := cfg.Section("mongo").Key("version_table").String()
-	notificationTable := cfg.Section("mongo").Key("notifaction_table").String()
-	activityTable := cfg.Section("mongo").Key("activity_table").String()
-	propsTabel := cfg.Section("mongo").Key("props_table").String()
-	initversion := cfg.Section("init").Key("version").String()
-
-	session := mongo.ConSession
-	defer session.Close()
+func Init() {
+	flag.StringVar(&FixtimezoneFlag, "fixTimeZone", "", "fixTimeZone")
+	flag.StringVar(&Sys, "sys", "", "android")
+	flag.StringVar(&Env, "env", "pro", "devOrPro")
+	flag.Parse()
 
 	if Sys == "" {
 		fmt.Println("please input system")
 		os.Exit(0)
 	}
-	if FixtimezoneFlag != "" {
-		FixTimezoneToInt(session, database_1, userTable)
+	defer ReleaseMongo()
+	InitConfig()
+	InitMongo()
+	NotiUser()
+}
+
+func NotiUser() {
+	if Sys == "" {
+		fmt.Println("please input system")
 		os.Exit(0)
 	}
 
-	query := session.DB(database_1).C(userTable).Find(bson.M{"devicetoken": bson.M{"$exists": true, "$ne": ""}})
+	wg = new(sync.WaitGroup)
+	now := int32(time.Now().Unix())
+
+	database_1 := Cfg.Section("mongo").Key("database_1").String()
+	database_0 := Cfg.Section("mongo").Key("database_0").String()
+
+	userTable := Cfg.Section("mongo").Key("user_table").String()
+	// userDataTable := Cfg.Section("mongo").Key("user_m_data").String()
+	versionTable := Cfg.Section("mongo").Key("version_table").String()
+	notificationTable := Cfg.Section("mongo").Key("notifaction_table").String()
+	activityTable := Cfg.Section("mongo").Key("activity_table").String()
+	propsTabel := Cfg.Section("mongo").Key("props_table").String()
+	initversion := Cfg.Section("init").Key("version").String()
+	mailTable := Cfg.Section("mongo").Key("mail_table").String()
+
+	if FixtimezoneFlag != "" {
+		FixTimezoneToInt(Session, database_1, userTable)
+		os.Exit(0)
+	}
+
+	query := Session.DB(database_1).C(userTable).Find(bson.M{"devicetoken": bson.M{"$exists": true, "$ne": ""}})
 	//版本信息
-	verQuery := session.DB(database_0).C(versionTable).Find(bson.M{})
+	verQuery := Session.DB(database_0).C(versionTable).Find(bson.M{})
 	var versioninfo versionInfo
 	err := verQuery.One(&versioninfo)
 	if err != nil {
 		LogRus.Debugf("query version table err %v", err)
 	}
+
+	//系统邮件信息  从2023-5-19 开始，之前的不处理
+	year := 2023
+	month := time.May
+	day := 19
+	hour := 12
+	minute := 30
+	second := 0
+	startTime := time.Date(year, month, day, hour, minute, second, 0, time.UTC).Unix()
+	//只检查7天内的
+	endTime := now - 7*24*3600
+	if int32(startTime) > endTime {
+		endTime = int32(startTime)
+	}
+	mailQuery := Session.DB(database_0).C(mailTable).Find(bson.M{"create_time": bson.M{"$gt": endTime}, "is_use": 1, "type": bson.M{"$in": []int{1, 2}}}).Sort("-create_time")
+	var mailList []mailListInfo
+	err = mailQuery.All(&mailList)
+	if err != nil {
+		LogRus.Debugf("query mail err %v", err)
+	}
+
 	//排行榜信息
-	acitivityQuery := session.DB(database_0).C(activityTable).Find(bson.M{"name": "rank"})
+	acitivityQuery := Session.DB(database_0).C(activityTable).Find(bson.M{"name": "rank"})
 	var activityinfo acitivityInfo
 	err = acitivityQuery.One(&activityinfo)
 	if err != nil {
@@ -190,7 +261,7 @@ func NotiUser() {
 			LogRus.Info(userinfo.Id, " not in notification time")
 			continue
 		}
-		notiQuery := session.DB(database_1).C(notificationTable).Find(bson.M{"_id": userinfo.Id})
+		notiQuery := Session.DB(database_1).C(notificationTable).Find(bson.M{"_id": userinfo.Id})
 		var notiItem notificationInfo
 		err = notiQuery.One(&notiItem)
 		if err != nil {
@@ -216,7 +287,7 @@ func NotiUser() {
 		if isTrue := isNeedNewVersionNoti(versioninfo, notiItem); isTrue {
 			err = sendNotification(userinfo.Id, NOTI_NEWVERSION, userinfo.DeviceToken)
 			if err == nil {
-				_, err = session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_NEWVERSION: versioninfo.Name, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_NEWVERSION: versioninfo.Name, "lastsendtime": now}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:", NOTI_NEWVERSION, err)
 				}
@@ -228,7 +299,7 @@ func NotiUser() {
 		if isTrue := isNeedRankRewardNoti(activityinfo, notiItem); isTrue {
 			err = sendNotification(userinfo.Id, NOTI_RANK_REWARD, userinfo.DeviceToken)
 			if err == nil {
-				_, err = session.DB(database_1).C(notificationTable).Upsert(
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(
 					bson.M{"_id": userinfo.Id},
 					bson.M{"$unset": bson.M{NOTI_RANK_REWARD: 1}, "$set": bson.M{"lastsendtime": now}},
 				)
@@ -245,7 +316,7 @@ func NotiUser() {
 		if isTrue := isNeedRankStartNoti(activityinfo, notiItem); isTrue {
 			err = sendNotification(userinfo.Id, NOTI_RANK_RESTART, userinfo.DeviceToken)
 			if err == nil {
-				_, err = session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_RANK_RESTART: activityinfo.AcitivityId, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_RANK_RESTART: activityinfo.AcitivityId, "lastsendtime": now}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_RANK_RESTART, err)
 				}
@@ -253,8 +324,33 @@ func NotiUser() {
 			LogRus.Info(userinfo.Id, NOTI_RANK_RESTART)
 			continue
 		}
+
+		// 系统邮件通知
+		if needSendAll, needSendPart, lastAllMailId, lastPartMailId := isNeedMailNoti(userinfo.Id, mailList, notiItem); needSendAll || needSendPart {
+			if needSendAll {
+				err = sendNotification(userinfo.Id, NOTI_SYSTEMINFO, userinfo.DeviceToken)
+				if err == nil {
+					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastallmailid": lastAllMailId, "lastsendtime": now}})
+					if err != nil {
+						LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_SYSTEMINFO, err)
+					}
+				}
+				continue
+			}
+			if needSendPart {
+				err = sendNotification(userinfo.Id, NOTI_SYSTEMINFO, userinfo.DeviceToken)
+				if err == nil {
+					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastpartmailid": lastPartMailId, "lastsendtime": now}})
+					if err != nil {
+						LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_SYSTEMINFO, err)
+					}
+				}
+				continue
+			}
+		}
+
 		//体力恢复满通知
-		propsQuery := session.DB(database_1).C(propsTabel).Find(bson.M{"_id": userinfo.Id})
+		propsQuery := Session.DB(database_1).C(propsTabel).Find(bson.M{"_id": userinfo.Id})
 		propsQuery.Select(bson.M{"_id": 1, "data.userTokenData.power": 1, "data.userTokenData.powerStartTime": 1})
 		var propsinfo propsInfo
 		err = propsQuery.One(&propsinfo)
@@ -271,7 +367,7 @@ func NotiUser() {
 				} else {
 					times++
 				}
-				_, err = session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_POWER: day, "powertimes": times, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_POWER: day, "powertimes": times, "lastsendtime": now}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_POWER, err)
 				}
@@ -284,7 +380,7 @@ func NotiUser() {
 		if _, ok := notiItem.FriendGift["time"]; ok {
 			err = sendNotification(userinfo.Id, NOTI_FRIENDGIFT, userinfo.DeviceToken)
 			if err == nil {
-				_, err = session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$unset": bson.M{NOTI_FRIENDGIFT: 1}, "$set": bson.M{"lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$unset": bson.M{NOTI_FRIENDGIFT: 1}, "$set": bson.M{"lastsendtime": now}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_FRIENDGIFT, err)
 				}
@@ -298,7 +394,7 @@ func NotiUser() {
 			callNotiType := NOTI_CALLBACK + "_" + strconv.Itoa(notiItem.CallBackTimes+1)
 			err = sendNotification(userinfo.Id, callNotiType, userinfo.DeviceToken)
 			if err == nil {
-				_, err = session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$inc": bson.M{NOTI_CALLBACK: 1}, "$set": bson.M{"lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$inc": bson.M{NOTI_CALLBACK: 1}, "$set": bson.M{"lastsendtime": now}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_CALLBACK, err)
 				}
@@ -334,6 +430,37 @@ func isNeedRankRewardNoti(activity acitivityInfo, notification notificationInfo)
 		return false
 	}
 	return true
+}
+
+func isNeedMailNoti(uid int, mailList []mailListInfo, notification notificationInfo) (needSendAll bool, needSendPart bool, lastAllMailId string, lastPartMailId string) {
+	//遍历所有邮件，取出最新的 发给所有用户的邮件和发给部分用户的邮件
+	for _, v := range mailList {
+		//发给所有用户的邮件
+		if v.Type == 2 && lastAllMailId == "" {
+			lastAllMailId = v.Id.Hex()
+			continue
+		}
+		if v.Type == 2 {
+			continue
+		}
+		//发给部分用户的邮件
+		for _, userid := range v.UidArray {
+			if uid == userid {
+				lastPartMailId = v.Id.Hex()
+				break
+			}
+		}
+		if lastPartMailId != "" && lastAllMailId != "" {
+			break
+		}
+	}
+	if notification.LastAllMailId != lastAllMailId {
+		needSendAll = true
+	}
+	if notification.LastPartMailId != lastPartMailId {
+		needSendPart = true
+	}
+	return
 }
 
 // 是否需要排行榜开始通知
@@ -404,20 +531,6 @@ func sendNotification(uid int, notiType string, deviceToken string) (err error) 
 		go DoAndroidPush(notiType, deviceToken)
 	}
 	return
-	// notiTypeList, ok := notiList[notiType]
-	// if ok {
-	// 	if notiTypeList == nil {
-	// 		notiTypeList = make([]string, 100)
-	// 	}
-	// 	notiTypeList = append(notiTypeList, deviceToken)
-	// 	notiList[notiType] = notiTypeList
-	// }
-}
-
-func batchSend() {
-	// for notitype, tokens := range notiList {
-
-	// }
 }
 
 type userTableInfo struct {
@@ -450,25 +563,16 @@ func FixTimezoneToInt(mongo *mgo.Session, database string, userTable string) {
 }
 
 func UpdateProp() {
-	cfg, err := ini.Load("./config.ini")
-	if err != nil {
-		fmt.Printf("Fail to read file:%v", err)
-		os.Exit(1)
-	}
-	host := cfg.Section("mongo").Key("host").String()
-	port := cfg.Section("mongo").Key("port").String()
-	user := cfg.Section("mongo").Key("user").String()
-	password := cfg.Section("mongo").Key("password").String()
-	mongo := getMongo(host, port, user, password)
+	defer ReleaseMongo()
+	InitConfig()
+	InitMongo()
 
-	database := cfg.Section("mongo").Key("database").String()
-	usermdata := cfg.Section("mongo").Key("user_m_data").String()
-	usermresturant := cfg.Section("mongo").Key("user_m_game_props").String()
-
-	session := mongo.ConSession
-	query := session.DB(database).C(usermresturant).Find(bson.M{"data.infiniteEndTimeMap": bson.M{"$exists": true}})
-	var resturantRes []resturant
-	err = query.All(&resturantRes)
+	database := Cfg.Section("mongo").Key("database").String()
+	usermdata := Cfg.Section("mongo").Key("user_m_data").String()
+	usermresturant := Cfg.Section("mongo").Key("user_m_game_props").String()
+	query := Session.DB(database).C(usermresturant).Find(bson.M{"data.infiniteEndTimeMap": bson.M{"$exists": true}})
+	var resturantRes []Resturant
+	err := query.All(&resturantRes)
 	if err != nil {
 		fmt.Printf("err: %v", err)
 	}
@@ -484,7 +588,7 @@ func UpdateProp() {
 		}
 		fmt.Printf("Id: %d, totalLevel:%d \n", value.Id, totalLevel)
 
-		err = session.DB(database).C(usermdata).Update(bson.M{"_id": value.Id}, bson.M{"$set": bson.M{"data.userData.starcount": totalLevel}})
+		err = Session.DB(database).C(usermdata).Update(bson.M{"_id": value.Id}, bson.M{"$set": bson.M{"data.userData.starcount": totalLevel}})
 		if err != nil {
 			fmt.Printf("update db error %v \n", err)
 		} else {
@@ -494,25 +598,17 @@ func UpdateProp() {
 }
 
 func UpdateNpcStarTotal() {
-	cfg, err := ini.Load("./config.ini")
-	if err != nil {
-		fmt.Printf("Fail to read file:%v", err)
-		os.Exit(1)
-	}
-	host := cfg.Section("mongo").Key("host").String()
-	port := cfg.Section("mongo").Key("port").String()
-	user := cfg.Section("mongo").Key("user").String()
-	password := cfg.Section("mongo").Key("password").String()
-	mongo := getMongo(host, port, user, password)
+	defer ReleaseMongo()
+	InitConfig()
+	InitMongo()
 
-	database := cfg.Section("mongo").Key("database").String()
-	usermdata := cfg.Section("mongo").Key("user_m_data").String()
-	usermresturant := cfg.Section("mongo").Key("user_m_resturant").String()
+	database := Cfg.Section("mongo").Key("database").String()
+	usermdata := Cfg.Section("mongo").Key("user_m_data").String()
+	usermresturant := Cfg.Section("mongo").Key("user_m_resturant").String()
 
-	session := mongo.ConSession
-	query := session.DB(database).C(usermresturant).Find(bson.M{"_id": bson.M{"$lt": 100}})
-	var resturantRes []resturant
-	err = query.All(&resturantRes)
+	query := Session.DB(database).C(usermresturant).Find(bson.M{"_id": bson.M{"$lt": 100}})
+	var resturantRes []Resturant
+	err := query.All(&resturantRes)
 	if err != nil {
 		fmt.Printf("err: %v", err)
 	}
@@ -528,29 +624,11 @@ func UpdateNpcStarTotal() {
 		}
 		fmt.Printf("Id: %d, totalLevel:%d \n", value.Id, totalLevel)
 
-		err = session.DB(database).C(usermdata).Update(bson.M{"_id": value.Id}, bson.M{"$set": bson.M{"data.userData.starcount": totalLevel}})
+		err = Session.DB(database).C(usermdata).Update(bson.M{"_id": value.Id}, bson.M{"$set": bson.M{"data.userData.starcount": totalLevel}})
 		if err != nil {
 			fmt.Printf("update db error %v \n", err)
 		} else {
 			fmt.Printf("%d update succ starcount:%d \n", value.Id, totalLevel)
 		}
 	}
-}
-
-func getMongo(host string, port string, user string, password string) *mongo.Mongo {
-	var dbconf []*mongo.DbConf
-	dbconf = append(dbconf, &mongo.DbConf{Host: host, Port: port, User: user, Pass: password})
-
-	var dbconfs = &mongo.DbConnConf{
-		Confs: dbconf,
-	}
-	dbconfs.Init()
-
-	var conn *mgo.Session
-	if Env == "dev" {
-		conn = dbconfs.GetConn(context.TODO())
-	} else {
-		conn = dbconfs.GetSSLCon(context.TODO())
-	}
-	return &mongo.Mongo{ConSession: conn}
 }
