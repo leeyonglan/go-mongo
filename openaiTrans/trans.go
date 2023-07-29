@@ -33,31 +33,33 @@ func Do() {
 	teaappstat.Init()
 
 	// dstLang := "SP"
-	dstLang := "PO"
-	database_1 := teaapp.Cfg.Section("mongo").Key("database_trans").String()
-	transTable := teaapp.Cfg.Section("mongo").Key("trans_table").String()
-	keyPrefix := strings.ToLower(dstLang)
-	langKey := keyPrefix + "_txt"
-	userquery := teaapp.Session.DB(database_1).C(transTable).Find(bson.M{"en_txt": bson.M{"$ne": ""}, langKey: bson.M{"$exists": false}}).Iter()
+	langs := []string{"VI", "SP", "FR", "MA", "TH", "PO", "AR"}
+	for _, dstLang := range langs {
+		database_1 := teaapp.Cfg.Section("mongo").Key("database_trans").String()
+		transTable := teaapp.Cfg.Section("mongo").Key("trans_table").String()
+		keyPrefix := strings.ToLower(dstLang)
+		langKey := keyPrefix + "_txt"
+		userquery := teaapp.Session.DB(database_1).C(transTable).Find(bson.M{"en_txt": bson.M{"$ne": ""}, langKey: bson.M{"$eq": ""}}).Iter()
 
-	pythonExec = teaapp.Cfg.Section("trans").Key("pythonexec").String()
-	pythonScriptPath = teaapp.Cfg.Section("trans").Key("pythonscript").String()
+		pythonExec = teaapp.Cfg.Section("trans").Key("pythonexec").String()
+		pythonScriptPath = teaapp.Cfg.Section("trans").Key("pythonscript").String()
 
-	var transItem TransItem
-	var transucc int
-	for userquery.Next(&transItem) {
-		teaapp.LogRus.Printf("start trans: %s", transItem.EnTxt)
-		tranTxt := ExecOpenAI(transItem.EnTxt, dstLang)
-		if len(tranTxt) > 0 {
-			teaapp.LogRus.Printf("success trans: %s", tranTxt)
-			transucc++
-			teaapp.LogRus.Printf("success trans total:%d", transucc)
+		var transItem TransItem
+		var transucc int
+		for userquery.Next(&transItem) {
+			teaapp.LogRus.Printf("start trans en to %s : %s", dstLang, transItem.EnTxt)
+			tranTxt := ExecOpenAI(transItem.EnTxt, dstLang)
+			if len(tranTxt) > 0 {
+				teaapp.LogRus.Printf("success trans: %s", tranTxt)
+				transucc++
+				teaapp.LogRus.Printf("success trans total:%d", transucc)
 
-			langType := keyPrefix + "_type"
-			err := teaapp.Session.DB(database_1).C(transTable).UpdateId(transItem.Id, bson.M{"$set": bson.M{langKey: tranTxt, langType: 0}})
-			if err != nil {
-				teaapp.LogRus.Errorf("update trans %s err %v", transItem.Id, err)
-				continue
+				langType := keyPrefix + "_type"
+				err := teaapp.Session.DB(database_1).C(transTable).UpdateId(transItem.Id, bson.M{"$set": bson.M{langKey: tranTxt, langType: 0}})
+				if err != nil {
+					teaapp.LogRus.Errorf("update trans %s err %v", transItem.Id, err)
+					continue
+				}
 			}
 		}
 	}

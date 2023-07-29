@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"main/teaappstat"
+	openaitrans "main/openaiTrans"
 	"mongo"
 	"strings"
 
@@ -64,7 +64,7 @@ type Foo struct {
 func main() {
 	// testmap()
 	// teaappstat.StoryBookStat()
-	teaappstat.StarStat()
+	// teaappstat.StarStat()
 	// teaappstat.DoMachineStat()
 	// teaappstat.ClothStat()
 	// teaapp.Init()
@@ -72,7 +72,7 @@ func main() {
 	// teaappstat.StageStat()
 	// teaapp.InitConfig()
 	// teaapp.DoPushBody()
-	// openaitrans.Do()
+	openaitrans.Do()
 	// testmapslice()
 }
 

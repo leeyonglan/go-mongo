@@ -38,7 +38,7 @@ type userModule struct {
 }
 
 func Init() {
-	teaapp.Env = "pro"
+	teaapp.Env = "dev"
 	teaapp.InitConfig()
 	teaapp.InitMongo()
 	LogRus = teaapp.LogRus
@@ -330,6 +330,15 @@ func StarStat() {
 						if starmapData, ok := mapdata["levelStarMap"].(map[string]interface{}); ok {
 							for _, num := range starmapData {
 								total += num.(int)
+							}
+						}
+						if midInt == 1 {
+							if total < 40 {
+								total = 40
+							}
+						} else {
+							if total < 60 {
+								total = 60
 							}
 						}
 						*midstar = append(*midstar, total)
@@ -642,19 +651,3 @@ func outputXlsx(fileName string, sheetName string, title []string, data [][]stri
 		LogRus.Errorf("save %s err:%v", fileName, err)
 	}
 }
-
-
-db.friend_log_20230621.aggregate([
-	{
-	  $group: {
-		_id: null,
-		totalSales: { $sum: "$reqflower" }
-	  }
-	},
-	{
-	  $project: {
-		_id: 0,
-		totalSales: 1
-	  }
-	}
-  ])

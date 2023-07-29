@@ -84,6 +84,7 @@ type notificationInfo struct {
 	CallBackTimes  int            `bson:"callback"`
 	LastAllMailId  string         `bson:"lastallmailid"`
 	LastPartMailId string         `bson:"lastpartmailid"`
+	DeviceToken    string         `bson:"deviceToken"`
 }
 
 type mailListInfo struct {
@@ -163,7 +164,7 @@ func ReleaseMongo() {
 
 func Init() {
 	flag.StringVar(&FixtimezoneFlag, "fixTimeZone", "", "fixTimeZone")
-	flag.StringVar(&Sys, "sys", "", "android")
+	flag.StringVar(&Sys, "sys", "android", "android")
 	flag.StringVar(&Env, "env", "pro", "devOrPro")
 	flag.Parse()
 
@@ -272,6 +273,22 @@ func NotiUser() {
 				LastSendTime: 0,
 			}
 		}
+		// check one deviceToken Send Repeat
+		deviceQuery := Session.DB(database_1).C(notificationTable).Find(bson.M{"deviceToken": userinfo.DeviceToken})
+		var deviceItems []notificationInfo
+		err = deviceQuery.All(&deviceItems)
+		if err != nil {
+			var lastSendTime = 0
+			for _, deviceItem := range deviceItems {
+				if deviceItem.LastSendTime > lastSendTime {
+					lastSendTime = deviceItem.LastSendTime
+				}
+			}
+			if lastSendTime != 0 {
+				notiItem.LastSendTime = lastSendTime
+			}
+		}
+
 		if notiItem.Version == "" {
 			notiItem.Version = initversion
 		}
@@ -287,7 +304,7 @@ func NotiUser() {
 		if isTrue := isNeedNewVersionNoti(versioninfo, notiItem); isTrue {
 			err = sendNotification(userinfo.Id, NOTI_NEWVERSION, userinfo.DeviceToken)
 			if err == nil {
-				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_NEWVERSION: versioninfo.Name, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_NEWVERSION: versioninfo.Name, "lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:", NOTI_NEWVERSION, err)
 				}
@@ -301,7 +318,7 @@ func NotiUser() {
 			if err == nil {
 				_, err = Session.DB(database_1).C(notificationTable).Upsert(
 					bson.M{"_id": userinfo.Id},
-					bson.M{"$unset": bson.M{NOTI_RANK_REWARD: 1}, "$set": bson.M{"lastsendtime": now}},
+					bson.M{"$unset": bson.M{NOTI_RANK_REWARD: 1}, "$set": bson.M{"lastsendtime": now, "deviceToken": userinfo.DeviceToken}},
 				)
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_RANK_REWARD, err)
@@ -316,7 +333,7 @@ func NotiUser() {
 		if isTrue := isNeedRankStartNoti(activityinfo, notiItem); isTrue {
 			err = sendNotification(userinfo.Id, NOTI_RANK_RESTART, userinfo.DeviceToken)
 			if err == nil {
-				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_RANK_RESTART: activityinfo.AcitivityId, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_RANK_RESTART: activityinfo.AcitivityId, "lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_RANK_RESTART, err)
 				}
@@ -330,7 +347,7 @@ func NotiUser() {
 			if needSendAll {
 				err = sendNotification(userinfo.Id, NOTI_SYSTEMINFO, userinfo.DeviceToken)
 				if err == nil {
-					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastallmailid": lastAllMailId, "lastsendtime": now}})
+					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastallmailid": lastAllMailId, "lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 					if err != nil {
 						LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_SYSTEMINFO, err)
 					}
@@ -340,7 +357,7 @@ func NotiUser() {
 			if needSendPart {
 				err = sendNotification(userinfo.Id, NOTI_SYSTEMINFO, userinfo.DeviceToken)
 				if err == nil {
-					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastpartmailid": lastPartMailId, "lastsendtime": now}})
+					_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{"lastpartmailid": lastPartMailId, "lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 					if err != nil {
 						LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_SYSTEMINFO, err)
 					}
@@ -367,7 +384,7 @@ func NotiUser() {
 				} else {
 					times++
 				}
-				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_POWER: day, "powertimes": times, "lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$set": bson.M{NOTI_POWER: day, "powertimes": times, "lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_POWER, err)
 				}
@@ -380,7 +397,7 @@ func NotiUser() {
 		if _, ok := notiItem.FriendGift["time"]; ok {
 			err = sendNotification(userinfo.Id, NOTI_FRIENDGIFT, userinfo.DeviceToken)
 			if err == nil {
-				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$unset": bson.M{NOTI_FRIENDGIFT: 1}, "$set": bson.M{"lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$unset": bson.M{NOTI_FRIENDGIFT: 1}, "$set": bson.M{"lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_FRIENDGIFT, err)
 				}
@@ -394,7 +411,7 @@ func NotiUser() {
 			callNotiType := NOTI_CALLBACK + "_" + strconv.Itoa(notiItem.CallBackTimes+1)
 			err = sendNotification(userinfo.Id, callNotiType, userinfo.DeviceToken)
 			if err == nil {
-				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$inc": bson.M{NOTI_CALLBACK: 1}, "$set": bson.M{"lastsendtime": now}})
+				_, err = Session.DB(database_1).C(notificationTable).Upsert(bson.M{"_id": userinfo.Id}, bson.M{"$inc": bson.M{NOTI_CALLBACK: 1}, "$set": bson.M{"lastsendtime": now, "deviceToken": userinfo.DeviceToken}})
 				if err != nil {
 					LogRus.WithFields(logrus.Fields{"uid": userinfo.Id}).Infof("update notification %s err:%v", NOTI_CALLBACK, err)
 				}
