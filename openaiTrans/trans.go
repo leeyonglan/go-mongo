@@ -33,7 +33,7 @@ func Do() {
 	teaappstat.Init()
 
 	// dstLang := "SP"
-	langs := []string{"VI", "SP", "FR", "MA", "TH", "PO", "AR"}
+	langs := []string{"VI", "SP", "FR", "MA", "TH", "PO", "AR", "JP"}
 	for _, dstLang := range langs {
 		database_1 := teaapp.Cfg.Section("mongo").Key("database_trans").String()
 		transTable := teaapp.Cfg.Section("mongo").Key("trans_table").String()
@@ -46,9 +46,14 @@ func Do() {
 
 		var transItem TransItem
 		var transucc int
+		var fromLang string
 		for userquery.Next(&transItem) {
-			teaapp.LogRus.Printf("start trans en to %s : %s", dstLang, transItem.EnTxt)
-			tranTxt := ExecOpenAI(transItem.EnTxt, dstLang)
+			fromLang = transItem.EnTxt
+			if dstLang == "JP" {
+				fromLang = transItem.ZhTxt
+			}
+			teaapp.LogRus.Printf("start trans en to %s : %s", dstLang, fromLang)
+			tranTxt := ExecOpenAI(fromLang, dstLang)
 			if len(tranTxt) > 0 {
 				teaapp.LogRus.Printf("success trans: %s", tranTxt)
 				transucc++
