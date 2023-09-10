@@ -36,9 +36,13 @@ type userModule struct {
 	ID   int                    `bson:"_id"`
 	Data map[string]interface{} `bson:"data"`
 }
+type user struct {
+	ID         int `bson:"_id"`
+	CreateTime int `bson:"create_time"`
+}
 
 func Init() {
-	teaapp.Env = "dev"
+	teaapp.InitEnv()
 	teaapp.InitConfig()
 	teaapp.InitMongo()
 	LogRus = teaapp.LogRus
@@ -104,7 +108,7 @@ var (
 	wgstat           sync.WaitGroup
 )
 
-//故事书领奖解锁统计
+// 故事书领奖解锁统计
 func StoryBookStat() {
 	Init()
 	storyTitleConfig = PraseStoryTitleConfig()
@@ -625,12 +629,34 @@ func getFloatStr(value float64) string {
 }
 
 func outputXlsx(fileName string, sheetName string, title []string, data [][]string) {
+
 	var file *xlsx.File
 	var sheet *xlsx.Sheet
 	var row *xlsx.Row
 	var cell *xlsx.Cell
 	var err error
 	file = xlsx.NewFile()
+	sheet, err = file.AddSheet("Sheet1")
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	row = sheet.AddRow()
+	cell = row.AddCell()
+	cell.Value = "I am a cell!"
+	err = file.Save("MyXLSXFile.xlsx")
+	if err != nil {
+		fmt.Printf(err.Error())
+	}
+	return
+
+	if _, err := os.Stat(fileName); err == nil {
+		file, err = xlsx.OpenFile(fileName)
+		if err != nil {
+			LogRus.Errorf("open file err:%v", err)
+		}
+	} else {
+		file = xlsx.NewFile()
+	}
 	sheet, err = file.AddSheet(sheetName)
 	if err != nil {
 		LogRus.Errorf("add newsheet err:%v", err)
@@ -638,12 +664,12 @@ func outputXlsx(fileName string, sheetName string, title []string, data [][]stri
 	row = sheet.AddRow()
 	for _, val := range title {
 		cell = row.AddCell()
-		cell.Value = val
+		cell.SetString(val)
 	}
 	for _, v := range data {
 		newrow := sheet.AddRow()
 		for _, vv := range v {
-			newrow.AddCell().Value = vv
+			newrow.AddCell().SetString(vv)
 		}
 	}
 	err = file.Save(fileName)

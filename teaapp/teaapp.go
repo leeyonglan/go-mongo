@@ -59,7 +59,7 @@ const (
 	NOTI_CALLBACK     = "callback"
 )
 
-//user 表
+// user 表
 type userInfo struct {
 	Id                int    `bson:"_id"`
 	Status            int    `bson:"status"`
@@ -71,7 +71,7 @@ type userInfo struct {
 	DeviceTokenUpTime int    `bson:"devicetoken_uptime"`
 }
 
-//notification 表
+// notification 表
 type notificationInfo struct {
 	Id             int            `bson:"_id"`
 	FriendGift     map[string]int `bson:"friendgift"` //是否需要发送好友送礼物通知
@@ -156,6 +156,17 @@ func InitMongo() {
 	password := Cfg.Section("mongo").Key("password").String()
 	mongo := mongo.GetMongo(host, port, user, password, ca)
 	Session = mongo.ConSession
+}
+
+func InitEnv() {
+	flag.StringVar(&Env, "env", "dev", "devOrPro")
+	flag.Parse()
+
+	if Env == "" {
+		fmt.Println("please input system")
+		os.Exit(0)
+	}
+	fmt.Println("env:", Env)
 }
 
 func ReleaseMongo() {
@@ -262,7 +273,8 @@ func NotiUser() {
 			LogRus.Info(userinfo.Id, " not in notification time")
 			continue
 		}
-		notiQuery := Session.DB(database_1).C(notificationTable).Find(bson.M{"_id": userinfo.Id})
+		//查询2个小时前发送通知的用户
+		notiQuery := Session.DB(database_1).C(notificationTable).Find(bson.M{"_id": userinfo.Id, "lastsendtime": bson.M{"$lt": now - 3600*2}})
 		var notiItem notificationInfo
 		err = notiQuery.One(&notiItem)
 		if err != nil {
@@ -272,6 +284,7 @@ func NotiUser() {
 				Version:      initversion,
 				LastSendTime: 0,
 			}
+			continue
 		}
 		// check one deviceToken Send Repeat
 		deviceQuery := Session.DB(database_1).C(notificationTable).Find(bson.M{"deviceToken": userinfo.DeviceToken})
@@ -437,7 +450,7 @@ func isNeedNewVersionNoti(version versionInfo, notification notificationInfo) bo
 	return true
 }
 
-//是否需要排行榜奖励通知
+// 是否需要排行榜奖励通知
 func isNeedRankRewardNoti(activity acitivityInfo, notification notificationInfo) bool {
 	if notification.RankReward != 1 {
 		return false
@@ -486,10 +499,7 @@ func isNeedRankStartNoti(activity acitivityInfo, notification notificationInfo) 
 		return false
 	}
 	now := time.Now().Unix()
-	if now > int64(activity.StartTime)+24*3600 {
-		return false
-	}
-	return true
+	return now < int64(activity.StartTime)+24*3600
 }
 
 func isNeedPowerNoti(propsinfo propsInfo, notification notificationInfo) bool {
@@ -525,13 +535,8 @@ func isNeedCallNoti(userinfo userInfo, notification notificationInfo) bool {
 	}
 	intervalDay := callTimesAarray[hasCallTimes]
 	intervalTime := intervalDay * 24 * 3600
-	if now <= int64(lastLoginTime)+int64(intervalTime) {
-		return false
-	}
-	return true
+	return now > int64(lastLoginTime)+int64(intervalTime)
 }
-
-var notiList map[string][]string = make(map[string][]string)
 
 func sendNotification(uid int, notiType string, deviceToken string) (err error) {
 	LogRus.WithFields(log.Fields{
@@ -647,5 +652,17 @@ func UpdateNpcStarTotal() {
 		} else {
 			fmt.Printf("%d update succ starcount:%d \n", value.Id, totalLevel)
 		}
+	}
+}
+
+// 将用户过期devicetoken 置空
+func ExpireDeviceToken(deviceToken string) {
+	database_1 := Cfg.Section("mongo").Key("database_1").String()
+	userTable := Cfg.Section("mongo").Key("user_table").String()
+	err := Session.DB(database_1).C(userTable).Update(bson.M{"devicetoken": deviceToken}, bson.M{"$set": bson.M{"devicetoken": ""}})
+	if err != nil {
+		fmt.Printf("update db error %v \n", err)
+	} else {
+		fmt.Printf("%s update succ \n", deviceToken)
 	}
 }

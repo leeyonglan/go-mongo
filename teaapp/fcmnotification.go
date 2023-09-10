@@ -27,7 +27,8 @@ func GetMessagingInstance() *messaging.Client {
 	return messagingInstance
 }
 
-//TODO and to env
+// TODO and to env
+//
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/service-account-file.json"
 func InitFcm(registrationToken string) {
 
@@ -86,7 +87,9 @@ func DoAndroidPush(notiType string, deviceToken string) (err error) {
 	response, err := client.Send(ctx, message)
 
 	if err != nil {
-		LogRus.Fatalln(err)
+		LogRus.Error(err)
+		ExpireDeviceToken(deviceToken)
+		return
 	}
 	// Response is a message ID string.
 	LogRus.Info("Successfully sent message:", response)

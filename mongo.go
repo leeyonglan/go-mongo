@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	openaitrans "main/openaiTrans"
+	"main/teaappstat"
 	"mongo"
 	"strings"
 
@@ -72,8 +72,10 @@ func main() {
 	// teaappstat.StageStat()
 	// teaapp.InitConfig()
 	// teaapp.DoPushBody()
-	openaitrans.Do()
+	// openaitrans.Do()
 	// testmapslice()
+	// mergeiostoandroid.Init()
+	teaappstat.DiamondStat()
 }
 
 func testmapslice() {

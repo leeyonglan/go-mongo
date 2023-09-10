@@ -10,7 +10,8 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceRoot}",
-            "args": ["--sys=ios","--env=dev"]
+            // "args": ["--sys=ios","--env=dev"]
+            "args": ["--env=dev"]
         }
     ]
 }
