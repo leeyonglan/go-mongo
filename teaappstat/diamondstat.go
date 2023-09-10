@@ -12,55 +12,94 @@ type UserProLog struct {
 	UserId int `bson:"uid"`
 	EndNum int `bson:"end_num"`
 }
+type data struct {
+	GameVersion  string `bson:"gameVersion"`
+	TokenDiamond int    `bson:"token_diamond"`
+	TokenCoin    int    `bson:"token_coin"`
+}
+type userProData struct {
+	ID   int  `bson:"_id"`
+	Data data `bson:"data"`
+}
 
 func DiamondStat() {
-	outputXlsx("diamondStat1.xlsx", "r_1", []string{"ID", "NUM"}, [][]string{{"1", "2"}, {"3", "4"}})
-	return
 	Init()
 	var totalUser int = 0
 	database_1 := teaapp.Cfg.Section("mongo").Key("database_1").String()
 	usermdata := teaapp.Cfg.Section("mongo").Key("user_table").String()
-	diamondLogTable := teaapp.Cfg.Section("mongo").Key("diamond_log_table").String()
-	usermdataTable := teaapp.Cfg.Section("mongo").Key("user_m_data").String()
+	usermProTable := teaapp.Cfg.Section("mongo").Key("props_table").String()
+	userModuleTable := teaapp.Cfg.Section("mongo").Key("user_m_data").String()
 
-	userquery := teaapp.Session.DB(database_1).C(usermdata).Find(bson.M{"create_time": bson.M{"$gt": 10}})
+	userquery := teaapp.Session.DB(database_1).C(usermdata).Find(bson.M{"create_time": bson.M{"$gt": 1692892800}})
 	var user user
 	userqueryIter := userquery.Iter()
 	var diamondRetMap map[string]*map[int]int = make(map[string]*map[int]int)
 	var diamondRange []int = []int{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100} // 钻石范围
-	var restMaxId int = 15
+
 	for userqueryIter.Next(&user) {
 		fmt.Println("U:", user.ID)
 
-		query := teaapp.Session.DB(database_1).C(usermdataTable).Find(bson.M{"_id": user.ID, "data.gameVersion": "1.0.6"})
-		var userData interface{}
-		err := query.One(userData)
+		//在哪个店铺
+		userquery := teaapp.Session.DB(database_1).C(userModuleTable).Find(bson.M{"_id": user.ID, "data.gameVersion": "1.4.76"})
+		var usermodule userModule
+		err := userquery.One(&usermodule)
 		if err != nil {
+			LogRus.Errorf("Query user:%d  err:%v", user.ID, err)
 			continue
 		}
-		totalUser++
-		for i := 2; i < restMaxId; i++ {
-			rid := fmt.Sprintf("%d", i)
-			var diamondMap map[int]int
-			if _, ok := diamondRetMap[rid]; ok {
-				diamondMap = *diamondRetMap[rid]
+		userData, ok := usermodule.Data["userData"].(map[string]interface{})
+		if !ok {
+			LogRus.Errorf("Assert userData err")
+			continue
+		}
+		var maxStageId, sok = userData["maxStageId"]
+		if !sok {
+			continue
+		}
+		var maxRestaurantId, mok = userData["maxRestaurantId"]
+		if !mok {
+			continue
+		}
+		LogRus.Infof("User:%d maxStageId:%d maxRestaurantId:%d", user.ID, maxStageId, maxRestaurantId)
+		if maxRestaurantId.(int) == 1 {
+			if maxStageId.(int) <= 28 {
+				continue
 			} else {
-				diamondMap = make(map[int]int)
-				diamondRetMap[rid] = &diamondMap
+				maxRestaurantId = 2
 			}
-			query := teaapp.Session.DB(database_1).C(diamondLogTable).Find(bson.M{"uid": user.ID, "related_id": rid, "level_id": "1", "prop_id": "10002"}).Sort("-create_time").Limit(1)
-			var userProLog UserProLog
-			err := query.One(&userProLog)
-			if err != nil {
+		} else if maxRestaurantId.(int) >= 2 {
+			if maxStageId.(int) >= 55 {
+				maxRestaurantId = maxRestaurantId.(int) + 1
+			} else if maxStageId.(int) > 30 {
 				continue
 			}
-			for j := len(diamondRange) - 1; j >= 0; j-- {
-				if userProLog.EndNum > diamondRange[j] {
-					diamondMap[j]++
-					break
-				}
+		}
+		//钻石，金币
+		query := teaapp.Session.DB(database_1).C(usermProTable).Find(bson.M{"_id": user.ID})
+		var userProData userProData
+		err = query.One(userProData)
+		if err != nil {
+			continue
+
+		}
+		LogRus.Infof("User:%d maxStageId:%d maxRestaurantId:%d,diamond:%d", user.ID, maxStageId, maxRestaurantId, userProData.Data.TokenDiamond)
+		totalUser++
+
+		rid := fmt.Sprintf("%d", maxRestaurantId)
+		var diamondMap map[int]int
+		if _, ok := diamondRetMap[rid]; ok {
+			diamondMap = *diamondRetMap[rid]
+		} else {
+			diamondMap = make(map[int]int)
+			diamondRetMap[rid] = &diamondMap
+		}
+		for j := len(diamondRange) - 1; j >= 0; j-- {
+			if userProData.Data.TokenDiamond > diamondRange[j] {
+				diamondMap[j]++
+				break
 			}
 		}
+
 	}
 	fmt.Println("totalUser:", totalUser)
 	//output
