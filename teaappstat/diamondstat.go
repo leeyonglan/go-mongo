@@ -12,14 +12,9 @@ type UserProLog struct {
 	UserId int `bson:"uid"`
 	EndNum int `bson:"end_num"`
 }
-type data struct {
-	GameVersion  string `bson:"gameVersion"`
-	TokenDiamond int    `bson:"token_diamond"`
-	TokenCoin    int    `bson:"token_coin"`
-}
 type userProData struct {
-	ID   int  `bson:"_id"`
-	Data data `bson:"data"`
+	ID   int                    `bson:"_id"`
+	Data map[string]interface{} `bson:"data"`
 }
 
 func DiamondStat() {
@@ -77,12 +72,15 @@ func DiamondStat() {
 		//钻石，金币
 		query := teaapp.Session.DB(database_1).C(usermProTable).Find(bson.M{"_id": user.ID})
 		var userProData userProData
-		err = query.One(userProData)
+		err = query.One(&userProData)
 		if err != nil {
 			continue
-
 		}
-		LogRus.Infof("User:%d maxStageId:%d maxRestaurantId:%d,diamond:%d", user.ID, maxStageId, maxRestaurantId, userProData.Data.TokenDiamond)
+		diamond, ok := userProData.Data["userTokenData"].(map[string]interface{})["token_diamond"]
+		if !ok {
+			continue
+		}
+		LogRus.Infof("User:%d maxStageId:%d maxRestaurantId:%d,diamond:%d", user.ID, maxStageId, maxRestaurantId, diamond.(int))
 		totalUser++
 
 		rid := fmt.Sprintf("%d", maxRestaurantId)
@@ -94,7 +92,7 @@ func DiamondStat() {
 			diamondRetMap[rid] = &diamondMap
 		}
 		for j := len(diamondRange) - 1; j >= 0; j-- {
-			if userProData.Data.TokenDiamond > diamondRange[j] {
+			if diamond.(int) > diamondRange[j] {
 				diamondMap[j]++
 				break
 			}
