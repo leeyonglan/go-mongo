@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"main/teaappstat"
+	"goexcel"
 	"mongo"
 	"strings"
 
@@ -67,6 +67,17 @@ func main() {
 	// teaappstat.StarStat()
 	// teaappstat.DoMachineStat()
 	// teaappstat.ClothStat()
+	// teaappstat.HaveTwoDesk()
+	// teaappstat.Caculate()
+	// teaappstat.DoUnlockFriendUpdate()
+	// teaappstat.DelExpireRquest()
+	// teaappstat.DoFor_20240115()
+	// teaappstat.SkinStat()
+	// openaitrans.UpdateTransClass()
+	goexcel.DoCsv()
+	// teaappstat.FrindsStat()
+	// teaappstat.LostUserCoinStat()
+	// teaappstat.AutoClaim()
 	// teaapp.Init()
 	// teaappstat.Do()
 	// teaappstat.StageStat()
@@ -75,7 +86,8 @@ func main() {
 	// openaitrans.Do()
 	// testmapslice()
 	// mergeiostoandroid.Init()
-	teaappstat.DiamondStat()
+	// teaappstat.DiamondStat()
+	// deviceidfix.Init()
 }
 
 func testmapslice() {

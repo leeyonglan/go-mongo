@@ -12,6 +12,7 @@ type UserProLog struct {
 	UserId int `bson:"uid"`
 	EndNum int `bson:"end_num"`
 }
+
 type userProData struct {
 	ID   int                    `bson:"_id"`
 	Data map[string]interface{} `bson:"data"`
@@ -29,13 +30,14 @@ func DiamondStat() {
 	var user user
 	userqueryIter := userquery.Iter()
 	var diamondRetMap map[string]*map[int]int = make(map[string]*map[int]int)
-	var diamondRange []int = []int{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100} // 钻石范围
+	// var diamondRange []int = []int{0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100} // 钻石范围
+	var diamondRange []int = []int{0, 1000, 2000, 3000, 4000, 5000, 10000} // 钻石范围
 
 	for userqueryIter.Next(&user) {
 		fmt.Println("U:", user.ID)
 
 		//在哪个店铺
-		userquery := teaapp.Session.DB(database_1).C(userModuleTable).Find(bson.M{"_id": user.ID, "data.gameVersion": "1.4.76"})
+		userquery := teaapp.Session.DB(database_1).C(userModuleTable).Find(bson.M{"_id": user.ID, "data.gameVersion": bson.M{"$in": []string{"1.4.76", "1.4.78"}}})
 		var usermodule userModule
 		err := userquery.One(&usermodule)
 		if err != nil {
@@ -76,7 +78,7 @@ func DiamondStat() {
 		if err != nil {
 			continue
 		}
-		diamond, ok := userProData.Data["userTokenData"].(map[string]interface{})["token_diamond"]
+		diamond, ok := userProData.Data["userTokenData"].(map[string]interface{})["token_coin"]
 		if !ok {
 			continue
 		}
@@ -131,7 +133,7 @@ func DiamondStat() {
 			value := [2]string{vkeyStr, vkeyValStr}
 			values = append(values, value[:])
 		}
-		outputXlsx("diamondStat.xlsx", "r_"+key, title, values)
+		outputXlsx("coinStat.xlsx", "r_"+key, title, values)
 	}
 
 }

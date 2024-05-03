@@ -12,7 +12,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/tealeg/xlsx"
+	"github.com/tealeg/xlsx/v3"
 	"gopkg.in/ini.v1"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -107,6 +107,107 @@ var (
 	storyTitleConfig storyConfig
 	wgstat           sync.WaitGroup
 )
+
+type UserHome struct {
+	ID   int                    `bson:"_id"`
+	Data map[string]interface{} `bson:"data"`
+}
+type UserInfo struct {
+	Id                int    `bson:"_id"`
+	Status            int    `bson:"status"`
+	CreateTime        int    `bson:"create_time"`
+	LastLoginTime     int    `bson:"last_login_time"`
+	TimeZone          int    `bson:"timezone"`
+	SaveMoudleTime    int    `bson:"sava_module_time"`
+	DeviceToken       string `bson:"devicetoken"`
+	DeviceTokenUpTime int    `bson:"devicetoken_uptime"`
+}
+
+/* 统计好友数量 */
+func FrindsStat() {
+	Init()
+	database_1 := teaapp.Cfg.Section("mongo").Key("database_1").String()
+	userTable := teaapp.Cfg.Section("mongo").Key("user_m_friendgift").String()
+
+	friendQuery := teaapp.Session.DB(database_1).C(userTable).Find(bson.M{}).Iter()
+	var friendGift FriendGift
+	//统计每个用户拥有的好友数量，平均好友数量，好友数量中位数
+	var friendNumSlice = make([]int, 0)
+
+	for friendQuery.Next(&friendGift) {
+		friendNum := len(friendGift.FriendIdList)
+		friendNumSlice = append(friendNumSlice, friendNum)
+
+	}
+	//平均数
+	var friendNumTotalCount int
+	for _, count := range friendNumSlice {
+		friendNumTotalCount += count
+	}
+	var totalPlayers = len(friendNumSlice)
+
+	averageNum := float64(friendNumTotalCount) / float64(totalPlayers)
+	averageNumStr := strconv.FormatFloat(averageNum, 'f', 2, 64)
+	//中位数
+	sort.Ints(friendNumSlice)
+	var midNum int
+	if len(friendNumSlice)%2 == 0 {
+		midNum = (friendNumSlice[len(friendNumSlice)/2] + friendNumSlice[len(friendNumSlice)/2-1]) / 2
+	} else {
+		midNum = friendNumSlice[len(friendNumSlice)/2]
+	}
+	midNumStr := strconv.Itoa(midNum)
+	//输出
+	LogRus.Println("averageNum:", averageNumStr, "midNum:", midNumStr)
+}
+
+// 拥有至少2张桌子
+func HaveTwoDesk() {
+	Init()
+	database_1 := teaapp.Cfg.Section("mongo").Key("database_1").String()
+	usermhome := teaapp.Cfg.Section("mongo").Key("user_m_home").String()
+	userTable := teaapp.Cfg.Section("mongo").Key("user_table").String()
+
+	query := teaapp.Session.DB(database_1).C(userTable).Find(bson.M{"last_login_time": bson.M{"$gt": 1700648567}})
+
+	var users []UserInfo
+	err := query.All(&users)
+	if err != nil {
+		fmt.Printf("err:%v", err)
+	}
+	var totalDeskUser int
+	for _, user := range users {
+		var userId = user.Id
+
+		userquery := teaapp.Session.DB(database_1).C(usermhome).Find(bson.M{"_id": userId}).Iter()
+
+		var userHome UserHome
+
+		for userquery.Next(&userHome) {
+			if userHome.ID <= 100 {
+				continue
+			}
+			decorMap, isType := userHome.Data["userHomeDecorMap"].(map[string]interface{})
+			if !isType {
+				continue
+			}
+			var deskCount int
+			for k, decor := range decorMap {
+				intK, _ := strconv.Atoi(k)
+				if intK <= 5 {
+					if decor.(map[string]interface{})["hasBuy"] == true {
+						deskCount++
+					}
+				}
+			}
+			if deskCount >= 2 {
+				totalDeskUser++
+				println("uid:", userHome.ID)
+			}
+		}
+	}
+	fmt.Println("totalDeskUser:", totalDeskUser)
+}
 
 // 故事书领奖解锁统计
 func StoryBookStat() {
