@@ -8,23 +8,21 @@ import (
 	"firebase.google.com/go/messaging"
 )
 
-var messagingInstance *messaging.Client
+var MessagingInstance *messaging.Client
 var ctx context.Context
 
-func GetMessagingInstance() *messaging.Client {
-	once.Do(func() {
-		app, err := firebase.NewApp(context.Background(), nil)
-		if err != nil {
-			LogRus.Fatalf("error initializing app: %v\n", err)
-		}
-		// Obtain a messaging.Client from the App.
-		ctx = context.Background()
-		messagingInstance, err = app.Messaging(ctx)
-		if err != nil {
-			LogRus.Fatalf("error getting Messaging client: %v\n", err)
-		}
-	})
-	return messagingInstance
+func InitFcmInstance() {
+	app, err := firebase.NewApp(context.Background(), nil)
+	if err != nil {
+		LogRus.Fatalf("error initializing app: %v\n", err)
+	}
+	// Obtain a messaging.Client from the App.
+	ctx = context.Background()
+	MessagingInstance, err = app.Messaging(ctx)
+	if err != nil {
+		LogRus.Fatalf("error getting Messaging client: %v\n", err)
+	}
+
 }
 
 // TODO and to env
@@ -52,7 +50,7 @@ func InitFcm(registrationToken string) {
 		Android:      &androidConfig,
 		Notification: &notification,
 	}
-	client := GetMessagingInstance()
+	client := MessagingInstance
 	// Send a message to the device corresponding to the provided
 	// registration token.
 	response, err := client.Send(ctx, message)
@@ -65,7 +63,7 @@ func InitFcm(registrationToken string) {
 
 func DoAndroidPush(notiType string, deviceToken string) (err error) {
 	defer wg.Done()
-	client := GetMessagingInstance()
+	client := MessagingInstance
 	// This registration token comes from the client FCM SDKs.
 	//registrationToken := "d2qQcdtUQcWwKR2NCwhKuM:APA91bF3nKmr_zDkJgM8Wu8DyDhTPdrbt8v1hLRig2_W2wa6rp1sEiBmwGdzqUIrNsHg6Myi8v1z030Pi_yy6AU4y5KgC0dSRE-KPg86riCK564yKJ6TZ58qxHAOx2x4FDDTgcosWPhq"
 

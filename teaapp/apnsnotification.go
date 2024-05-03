@@ -13,31 +13,30 @@ type ApnsClientSingleton struct {
 	Client *apns2.Client
 }
 
-var instance *ApnsClientSingleton
+var ApnInstance *ApnsClientSingleton
 var once sync.Once
 
-func GetInstance() *ApnsClientSingleton {
-	once.Do(func() {
-		apnkey := Cfg.Section("ios").Key("apnkey").String()
-		keyid := Cfg.Section("ios").Key("keyid").String()
-		teamid := Cfg.Section("ios").Key("teamid").String()
-		authKey, err := token.AuthKeyFromFile(apnkey)
-		if err != nil {
-			LogRus.Fatal("token error:", err)
-		}
-		token := &token.Token{
-			AuthKey: authKey,
-			// KeyID from developer account (Certificates, Identifiers & Profiles -> Keys)
-			KeyID: keyid,
-			// TeamID from developer account (View Account -> Membership)
-			TeamID: teamid,
-		}
-		instance = &ApnsClientSingleton{}
-		// instance.Client = apns2.NewTokenClient(token).Development()
-		instance.Client = apns2.NewTokenClient(token).Production()
-	})
-	return instance
+func InitApnInstance() {
+	apnkey := Cfg.Section("ios").Key("apnkey").String()
+	keyid := Cfg.Section("ios").Key("keyid").String()
+	teamid := Cfg.Section("ios").Key("teamid").String()
+	authKey, err := token.AuthKeyFromFile(apnkey)
+	if err != nil {
+		LogRus.Fatal("token error:", err)
+	}
+	token := &token.Token{
+		AuthKey: authKey,
+		// KeyID from developer account (Certificates, Identifiers & Profiles -> Keys)
+		KeyID: keyid,
+		// TeamID from developer account (View Account -> Membership)
+		TeamID: teamid,
+	}
+	ApnInstance = &ApnsClientSingleton{}
+	// instance.Client = apns2.NewTokenClient(token).Development()
+	ApnInstance.Client = apns2.NewTokenClient(token).Production()
+
 }
+
 func DoPushBody() {
 	deviceToken := "cbe4a70dedafea04b63e01a730b508a972635aa7bcdb15d479bd67b04781924b"
 	notification := &apns2.Notification{}
@@ -53,7 +52,7 @@ func DoPushBody() {
 		}
 	 }`
 	notification.Payload = []byte(payLoad)
-	client := GetInstance().Client
+	client := ApnInstance.Client
 	res, err := client.Push(notification)
 	if err != nil {
 		LogRus.Info("There was an error", err)
@@ -85,7 +84,8 @@ func DoPush(notiType string, deviceToken string) (err error) {
 	 }`
 	payLoad = strings.Replace(payLoad, "@type", notiType, 1)
 	notification.Payload = []byte(payLoad)
-	client := GetInstance().Client
+	client := ApnInstance.Client
+
 	res, err := client.Push(notification)
 	if err != nil {
 		LogRus.Info("There was an error", err)

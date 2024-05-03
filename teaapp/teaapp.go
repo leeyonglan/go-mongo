@@ -119,6 +119,11 @@ type propsInfo struct {
 	Data propsdata `bson:"data"`
 }
 
+type idmapnew struct {
+	Id     int `bson:"_id"`
+	UserId int `bson:"uid"`
+}
+
 var (
 	wg              *sync.WaitGroup
 	Cfg             *ini.File
@@ -127,6 +132,7 @@ var (
 	FixtimezoneFlag string
 	LogRus          *log.Logger
 	Session         *mgo.Session
+	IOSUsers        map[int]int
 )
 
 func InitConfig() {
@@ -179,23 +185,30 @@ func Init() {
 	flag.StringVar(&Env, "env", "pro", "devOrPro")
 	flag.Parse()
 
-	if Sys == "" {
-		fmt.Println("please input system")
-		os.Exit(0)
-	}
 	defer ReleaseMongo()
 	InitConfig()
 	InitMongo()
+	InitApnInstance()
+	InitFcmInstance()
 	NotiUser()
 }
 
-func NotiUser() {
-	if Sys == "" {
-		fmt.Println("please input system")
-		os.Exit(0)
+// 预加载所有IOS玩家
+func PreLoadAllIOSPlayer(db *mgo.Database) {
+	idmapUsers := []idmapnew{}
+	IOSUsers = make(map[int]int)
+	idmapTable := db.C("idmapnew").Find(bson.M{"$or": []bson.M{bson.M{"ios": 1}, bson.M{"fios": 1}}}).All(&idmapUsers)
+	if idmapTable != nil {
+		fmt.Println("idmapTable err:", idmapTable)
 	}
+	for _, v := range idmapUsers {
+		IOSUsers[v.UserId] = 1
+	}
+}
 
+func NotiUser() {
 	wg = new(sync.WaitGroup)
+
 	now := int32(time.Now().Unix())
 
 	database_1 := Cfg.Section("mongo").Key("database_1").String()
@@ -210,18 +223,16 @@ func NotiUser() {
 	initversion := Cfg.Section("init").Key("version").String()
 	mailTable := Cfg.Section("mongo").Key("mail_table").String()
 
-	if FixtimezoneFlag != "" {
-		FixTimezoneToInt(Session, database_1, userTable)
-		os.Exit(0)
-	}
+	DB0 := Session.DB(database_0)
+	PreLoadAllIOSPlayer(DB0)
 
 	query := Session.DB(database_1).C(userTable).Find(bson.M{"devicetoken": bson.M{"$exists": true, "$ne": ""}})
 	//版本信息
-	verQuery := Session.DB(database_0).C(versionTable).Find(bson.M{})
+	verQuery := DB0.C(versionTable).Find(bson.M{})
 	var versioninfo versionInfo
 	err := verQuery.One(&versioninfo)
 	if err != nil {
-		LogRus.Debugf("query version table err %v", err)
+		LogRus.Infof("query version table err %v", err)
 	}
 
 	//系统邮件信息  从2023-5-19 开始，之前的不处理
@@ -241,7 +252,7 @@ func NotiUser() {
 	var mailList []mailListInfo
 	err = mailQuery.All(&mailList)
 	if err != nil {
-		LogRus.Debugf("query mail err %v", err)
+		LogRus.Infof("query mail err %v", err)
 	}
 
 	//排行榜信息
@@ -249,7 +260,7 @@ func NotiUser() {
 	var activityinfo acitivityInfo
 	err = acitivityQuery.One(&activityinfo)
 	if err != nil {
-		LogRus.Debugf("query activity table err %v", err)
+		LogRus.Infof("query activity table err %v", err)
 	}
 
 	var users []userInfo
@@ -441,6 +452,11 @@ func NotiUser() {
 func isNeedNewVersionNoti(version versionInfo, notification notificationInfo) bool {
 	now := time.Now().Unix()
 	notiVersion := notification.Version
+	uid := notification.Id
+	// ios 暂不发通知
+	if _, ok := IOSUsers[uid]; ok {
+		return false
+	}
 	if now > int64(version.UpdateTime)+24*3600 {
 		return false
 	}
@@ -545,10 +561,10 @@ func sendNotification(uid int, notiType string, deviceToken string) (err error) 
 		"notiType":    notiType,
 	}).Info("start send")
 
-	if Sys == "ios" {
+	if _, ok := IOSUsers[uid]; ok {
 		wg.Add(1)
 		go DoPush(notiType, deviceToken)
-	} else if Sys == "android" {
+	} else {
 		wg.Add(1)
 		go DoAndroidPush(notiType, deviceToken)
 	}
